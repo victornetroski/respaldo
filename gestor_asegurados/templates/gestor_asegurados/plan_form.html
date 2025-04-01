@@ -1,0 +1,31 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="container mt-4">
+    <h2>Crear Nuevo Plan</h2>
+    <form method="post">
+        {% csrf_token %}
+        <div class="form-group">
+            <label for="id_aseguradora">Aseguradora:</label>
+            <select name="id_aseguradora" id="id_aseguradora" class="form-control" required>
+                <option value="">Seleccione una aseguradora</option>
+                {% for aseguradora in form.id_aseguradora.field.queryset %}
+                    <option value="{{ aseguradora.id_aseguradora }}">
+                        {{ aseguradora.nombre }}
+                    </option>
+                {% endfor %}
+            </select>
+        </div>
+        <div class="form-group">
+            <label for="id_nombre_plan">Nombre del Plan:</label>
+            <input type="text" 
+                   name="nombre_plan" 
+                   id="id_nombre_plan" 
+                   class="form-control" 
+                   required>
+        </div>
+        <button type="submit" class="btn btn-primary mt-3">Crear Plan</button>
+        <a href="{% url 'lista_planes' %}" class="btn btn-secondary mt-3">Cancelar</a>
+    </form>
+</div>
+{% endblock %}

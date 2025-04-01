@@ -1,0 +1,155 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=, initial-scale=1.0">
+    <title>Sistema Administrativo</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css">
+    <link href="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/css/select2.min.css" rel="stylesheet" />
+    <script src="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/js/select2.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+    <style>
+        body {
+            padding-top: 60px; /* Espacio para la navbar fixed */
+        }
+        
+        ::-webkit-scrollbar {
+            height: 10px;
+            position: fixed;
+            bottom: 0;
+            width: 100%;
+        }
+        
+        ::-webkit-scrollbar-track {
+            background: #f1f1f1;
+        }
+        
+        ::-webkit-scrollbar-thumb {
+            background: #888;
+            border-radius: 5px;
+        }
+        
+        ::-webkit-scrollbar-thumb:hover {
+            background: #555;
+        }
+    </style>
+</head>
+<body>
+
+    <nav class="navbar navbar-expand-lg bg-dark navbar-dark fixed-top">
+        <div class="container">
+          <a class="navbar-brand" href="/">Sistema Administrativo</a>
+          <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav" aria-controls="navbarNav" aria-expanded="false" aria-label="Toggle navigation">
+            <span class="navbar-toggler-icon"></span>
+          </button>
+          <div class="collapse navbar-collapse" id="navbarNav">
+            <ul class="navbar-nav ms-auto">
+                <li class="nav-item">
+                    <a href="/" class="nav-link">Home</a>
+                </li>
+    
+                {% if user.is_authenticated %}
+                <li class="nav-item dropdown">
+                    <a class="nav-link dropdown-toggle" href="#" role="button" data-bs-toggle="dropdown" aria-expanded="false">
+                        <i class="fas fa-tasks"></i> Tareas
+                    </a>
+                    <ul class="dropdown-menu">
+                        <li><a class="dropdown-item" href="{% url 'tasks' %}">
+                            <i class="fas fa-clock"></i> Tareas Pendientes
+                        </a></li>
+                        <li><a class="dropdown-item" href="{% url 'tasks_completed' %}">
+                            <i class="fas fa-check"></i> Tareas Completadas
+                        </a></li>
+                        <li><a class="dropdown-item" href="{% url 'create_task' %}">
+                            <i class="fas fa-plus"></i> Crear Tarea
+                        </a></li>
+                    </ul>
+                </li>
+                <li class="nav-item dropdown">
+                    <a class="nav-link dropdown-toggle" href="#" role="button" data-bs-toggle="dropdown" aria-expanded="false">
+                        <i class="fas fa-file-alt"></i> Gestor Documentos
+                    </a>
+                    <ul class="dropdown-menu">
+                        <li><a class="dropdown-item" href="{% url 'gestor_documentos:lista_documentos' %}">
+                            <i class="fas fa-list"></i> Lista de Documentos
+                        </a></li>
+                        <li><a class="dropdown-item" href="{% url 'gestor_documentos:subir_documento' %}">
+                            <i class="fas fa-upload"></i> Subir Documento
+                        </a></li>
+                    </ul>
+                </li>
+                <li class="nav-item dropdown">
+                    <a class="nav-link dropdown-toggle" href="#" role="button" data-bs-toggle="dropdown" aria-expanded="false">
+                        <i class="fas fa-shield-alt"></i> Gestor Asegurados
+                    </a>
+                    <ul class="dropdown-menu">
+                        <li><a class="dropdown-item" href="{% url 'asegurado-list' %}">
+                            <i class="fas fa-user"></i> Asegurados
+                        </a></li>
+                        <li><a class="dropdown-item" href="{% url 'aseguradora-list' %}">
+                            <i class="fas fa-building"></i> Aseguradoras
+                        </a></li>
+                        <li><a class="dropdown-item" href="{% url 'aseguradoraplan-list' %}">
+                            <i class="fas fa-list"></i> Planes
+                        </a></li>
+                        <li><a class="dropdown-item" href="{% url 'poliza-list' %}">
+                            <i class="fas fa-file-contract"></i> Pólizas
+                        </a></li>
+                        <li><hr class="dropdown-divider"></li>
+                        <li><a class="dropdown-item" href="{% url 'diagnostico-list' %}">
+                            <i class="fas fa-stethoscope"></i> Diagnósticos
+                        </a></li>
+                    </ul>
+                </li>
+                <li class="nav-item dropdown">
+                    <a class="nav-link dropdown-toggle" href="#" role="button" data-bs-toggle="dropdown" aria-expanded="false">
+                        <i class="fas fa-money-bill-wave"></i> Reembolsos
+                    </a>
+                    <ul class="dropdown-menu">
+                        <li><a class="dropdown-item" href="{% url 'gestor_reembolsos:lista_reembolsos' %}">
+                            <i class="fas fa-list"></i> Lista de Reembolsos
+                        </a></li>
+                        <li><a class="dropdown-item" href="{% url 'gestor_reembolsos:crear_reembolso' %}">
+                            <i class="fas fa-plus"></i> Nuevo Reembolso
+                        </a></li>
+                    </ul>
+                </li>
+                <li class="nav-item">
+                    <a href="/logout/" class="nav-link"><i class="fas fa-sign-out-alt"></i> Logout</a>
+                </li>
+                {% else %}
+                <li class="nav-item">
+                    <a href="/signup/" class="nav-link">Signup</a>
+                </li>
+                <li class="nav-item">
+                    <a href="/signin" class="nav-link">Signin</a>
+                </li>
+
+    
+            </ul>
+            <form class="d-flex" role="search">
+              <input class="form-control me-2" type="search" placeholder="Search" aria-label="Search">
+              <button class="btn btn-outline-success" type="submit">Search</button>
+            </form>
+          </div>
+        </div>
+      </nav>
+    <nav>
+        <ul>
+ 
+            {% endif %}
+
+
+        </ul>
+
+
+    </nav>
+
+
+
+    {% block content %}
+    {% endblock %}
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+</body>
+</html>

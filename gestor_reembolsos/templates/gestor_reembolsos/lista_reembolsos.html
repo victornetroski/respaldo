@@ -1,0 +1,229 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<style>
+    .outer-container {
+        position: relative;
+        height: calc(100vh - 200px);
+        display: flex;
+        flex-direction: column;
+    }
+
+    .table-container {
+        flex: 1;
+        overflow-y: auto;
+        min-height: 0;
+    }
+
+    .side-panel {
+        position: fixed;
+        top: 0;
+        right: -500px;
+        width: 500px;
+        height: 100vh;
+        background-color: #f8f9fa;
+        box-shadow: -2px 0 5px rgba(0, 0, 0, 0.1);
+        transition: right 0.3s ease;
+        z-index: 1050;
+        padding: 20px;
+        overflow-y: auto;
+    }
+
+    .side-panel.active {
+        right: 0;
+    }
+
+    .badge.bg-pendiente { background-color: #ffc107 !important; }
+    .badge.bg-en_revision { background-color: #17a2b8 !important; }
+    .badge.bg-aprobado { background-color: #28a745 !important; }
+    .badge.bg-rechazado { background-color: #dc3545 !important; }
+    .badge.bg-pagado { background-color: #6610f2 !important; }
+</style>
+
+<div class="container-fluid mt-4">
+    <div class="card">
+        <div class="card-header">
+            <div class="d-flex justify-content-between align-items-center">
+                <h2 class="mb-0">Gestión de Reembolsos</h2>
+                <a href="{% url 'gestor_reembolsos:crear_reembolso' %}" class="btn btn-primary">
+                    <i class="fas fa-plus"></i> Nuevo Reembolso
+                </a>
+            </div>
+        </div>
+        <div class="card-body">
+            <form method="get" class="mb-3">
+                <div class="input-group">
+                    <input type="text" name="q" class="form-control" placeholder="Buscar reembolsos..." value="{{ request.GET.q }}">
+                    <button type="submit" class="btn btn-primary">
+                        <i class="fas fa-search"></i> Buscar
+                    </button>
+                </div>
+            </form>
+
+            <div class="outer-container">
+                <div class="table-container">
+                    <table class="table table-hover">
+                        <thead class="table-dark">
+                            <tr>
+                                <th>ID</th>
+                                <th>Asegurado</th>
+                                <th>Póliza</th>
+                                <th>Fecha Solicitud</th>
+                                <th>Monto</th>
+                                <th>Estado</th>
+                                <th>Acciones</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for reembolso in reembolsos %}
+                            <tr class="reembolso-row" data-id="{{ reembolso.id_reembolso }}">
+                                <td>{{ reembolso.id_reembolso }}</td>
+                                <td>{{ reembolso.asegurado.nombre }} {{ reembolso.asegurado.apellido_paterno }}</td>
+                                <td>{{ reembolso.poliza.numero_poliza }}</td>
+                                <td>{{ reembolso.fecha_solicitud|date:"d/m/Y" }}</td>
+                                <td>${{ reembolso.monto_solicitado|floatformat:2 }}</td>
+                                <td>
+                                    <span class="badge bg-{{ reembolso.estado }}">
+                                        {{ reembolso.get_estado_display }}
+                                    </span>
+                                </td>
+                                <td>
+                                    <div class="btn-group">
+                                        <button type="button" class="btn btn-info btn-sm" onclick="openSidePanel('{{ reembolso.id_reembolso }}')">
+                                            <i class="fas fa-eye"></i>
+                                        </button>
+                                        <a href="{% url 'gestor_reembolsos:editar_reembolso' reembolso.id_reembolso %}" class="btn btn-warning btn-sm">
+                                            <i class="fas fa-edit"></i>
+                                        </a>
+                                    </div>
+                                </td>
+                            </tr>
+                            {% empty %}
+                            <tr>
+                                <td colspan="7" class="text-center">No hay reembolsos registrados</td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- Panel lateral -->
+            <div id="sidePanel" class="side-panel">
+                <div class="side-panel-header">
+                    <h5>Detalles del Reembolso</h5>
+                    <span class="close-btn" onclick="closeSidePanel()">&times;</span>
+                </div>
+                <div id="reembolsoDetails">
+                    <!-- El contenido se cargará dinámicamente -->
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    function openSidePanel(reembolsoId) {
+        document.getElementById('sidePanel').classList.add('active');
+        document.getElementById('reembolsoDetails').innerHTML = '<div class="text-center"><i class="fas fa-spinner fa-spin"></i> Cargando...</div>';
+
+        fetch(`/reembolsos/${reembolsoId}/`)
+            .then(response => response.json())
+            .then(data => {
+                let html = `
+                    <div class="card mb-3">
+                        <div class="card-header bg-primary text-white">
+                            <h6 class="mb-0">Información General</h6>
+                        </div>
+                        <div class="card-body">
+                            <dl class="row mb-0">
+                                <dt class="col-sm-4">Folio:</dt>
+                                <dd class="col-sm-8">${data.reembolso.id}</dd>
+                                <dt class="col-sm-4">Fecha Solicitud:</dt>
+                                <dd class="col-sm-8">${data.reembolso.fecha_solicitud}</dd>
+                                <dt class="col-sm-4">Monto:</dt>
+                                <dd class="col-sm-8">$${data.reembolso.monto_solicitado}</dd>
+                                <dt class="col-sm-4">Estado:</dt>
+                                <dd class="col-sm-8">
+                                    <span class="badge bg-${data.reembolso.estado.toLowerCase()}">
+                                        ${data.reembolso.estado}
+                                    </span>
+                                </dd>
+                            </dl>
+                        </div>
+                    </div>
+
+                    <div class="card mb-3">
+                        <div class="card-header bg-info text-white">
+                            <h6 class="mb-0">Datos del Asegurado</h6>
+                        </div>
+                        <div class="card-body">
+                            <dl class="row mb-0">
+                                <dt class="col-sm-4">Nombre:</dt>
+                                <dd class="col-sm-8">${data.asegurado.nombre_completo}</dd>
+                                <dt class="col-sm-4">Tipo:</dt>
+                                <dd class="col-sm-8">${data.asegurado.tipo}</dd>
+                                <dt class="col-sm-4">Póliza:</dt>
+                                <dd class="col-sm-8">${data.poliza.numero}</dd>
+                            </dl>
+                        </div>
+                    </div>`;
+
+                if (data.reclamaciones && data.reclamaciones.length > 0) {
+                    html += `
+                        <div class="card mb-3">
+                            <div class="card-header bg-success text-white">
+                                <h6 class="mb-0">Reclamaciones</h6>
+                            </div>
+                            <div class="card-body">
+                                <div class="table-responsive">
+                                    <table class="table table-sm">
+                                        <thead>
+                                            <tr>
+                                                <th>Diagnóstico</th>
+                                                <th>Tipo</th>
+                                                <th>Partidas</th>
+                                                <th>Estado</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            ${data.reclamaciones.map(rec => `
+                                                <tr>
+                                                    <td>${rec.diagnostico}</td>
+                                                    <td>${rec.es_inicial ? 'Inicial' : 'Complementaria'}</td>
+                                                    <td>${rec.cantidad_partidas}</td>
+                                                    <td>${rec.estado}</td>
+                                                </tr>
+                                            `).join('')}
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
+                        </div>`;
+                }
+
+                document.getElementById('reembolsoDetails').innerHTML = html;
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                document.getElementById('reembolsoDetails').innerHTML = 
+                    '<div class="alert alert-danger">Error al cargar los detalles del reembolso.</div>';
+            });
+    }
+
+    function closeSidePanel() {
+        document.getElementById('sidePanel').classList.remove('active');
+    }
+
+    // Cerrar panel al hacer clic fuera
+    document.addEventListener('click', function(event) {
+        const sidePanel = document.getElementById('sidePanel');
+        const isClickInside = sidePanel.contains(event.target);
+        const isClickOnRow = event.target.closest('.reembolso-row');
+        
+        if (!isClickInside && !isClickOnRow && sidePanel.classList.contains('active')) {
+            closeSidePanel();
+        }
+    });
+</script>
+{% endblock %}

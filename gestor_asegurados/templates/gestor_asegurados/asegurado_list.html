@@ -1,0 +1,556 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<style>
+    .outer-container {
+        position: relative;
+        height: calc(100vh - 200px);
+        display: flex;
+        flex-direction: column;
+    }
+
+    .table-container {
+        flex: 1;
+        overflow-y: auto;
+        min-height: 0;
+    }
+
+    .table-scroll {
+        width: 100%;
+        overflow-x: auto;
+        position: fixed;
+        bottom: 0;
+        left: 0;
+        background-color: white;
+        z-index: 1000;
+        border-top: 1px solid #dee2e6;
+    }
+
+    .table {
+        margin-bottom: 0;
+        white-space: nowrap;
+    }
+
+    thead {
+        position: sticky;
+        top: 0;
+        z-index: 1;
+    }
+
+    .side-panel {
+        position: fixed;
+        top: 0;
+        right: -500px; /* Modifica este valor para ajustar la posición inicial (debe coincidir con width) */
+        width: 500px;  /* Modifica este valor para ajustar el ancho del panel */
+        height: 100vh;
+        background-color: #f8f9fa;
+        box-shadow: -2px 0 5px rgba(0, 0, 0, 0.1);
+        transition: right 0.3s ease;
+        z-index: 1050;
+        padding: 20px;
+        overflow-y: auto;
+    }
+
+    .side-panel.active {
+        right: 0;
+    }
+
+    .side-panel-header {
+        padding: 15px;
+        background-color: #343a40;
+        color: white;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin: -20px -20px 20px -20px;
+    }
+
+    .close-btn {
+        cursor: pointer;
+        color: white;
+        font-size: 1.5rem;
+        padding: 0 10px;
+    }
+
+    .close-btn:hover {
+        color: #dc3545;
+    }
+
+    tr.asegurado-row {
+        cursor: pointer;
+    }
+
+    tr.asegurado-row:hover {
+        background-color: #f5f5f5;
+    }
+
+    .diagnoses-list {
+        max-height: 100px;
+        overflow-y: auto;
+    }
+    
+    .diagnosis-item .badge {
+        font-size: 0.8rem;
+        white-space: normal;
+        text-align: left;
+        display: block;
+        padding: 0.4rem;
+        margin-bottom: 0.2rem;
+        cursor: help;
+    }
+</style>
+
+<div class="container-fluid mt-4">
+    <div class="card">
+        <div class="card-header">
+            <div class="d-flex justify-content-between align-items-center">
+                <h2 class="mb-0">Gestión de Asegurados</h2>
+                <a href="{% url 'asegurado-create' %}" class="btn btn-primary">
+                    <i class="fas fa-plus"></i> Nuevo Asegurado
+                </a>
+            </div>
+        </div>
+        <div class="card-body">
+            <form method="get" class="mb-3">
+                <div class="input-group">
+                    <input type="text" name="q" class="form-control" placeholder="Buscar..." value="{{ request.GET.q }}">
+                    <button type="submit" class="btn btn-primary">
+                        <i class="fas fa-search"></i> Buscar
+                    </button>
+                </div>
+            </form>
+
+            {% if asegurados %}
+            <div class="outer-container">
+                <div class="table-container">
+                    <table class="table table-hover table-striped">
+                        <thead class="table-dark">
+                            <tr>
+                                <th>ID</th>
+                                <th>Póliza</th>
+                                <th>Nombre Completo</th>
+                                <th>Fecha Nacimiento</th>
+                                <th>Género</th>
+                                <th>RFC</th>
+                                <th>Contacto</th>
+                                <th>Tipo</th>
+                                <th>Diagnósticos</th>
+                                <th>Acciones</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for asegurado in asegurados %}
+                            <tr class="asegurado-row" data-id="{{ asegurado.id_asegurado }}" style="cursor: pointer;">
+                                <td>{{ asegurado.id_asegurado }}</td>
+                                <td>{{ asegurado.id_poliza.numero_poliza }}</td>
+                                <td>{{ asegurado.nombre }} {{ asegurado.apellido_paterno }} {{ asegurado.apellido_materno }}</td>
+                                <td>{{ asegurado.fecha_nacimiento }}</td>
+                                <td>{{ asegurado.genero }}</td>
+                                <td>{{ asegurado.rfc|default:"-" }}</td>
+                                <td>
+                                    {{ asegurado.telefono }}<br>
+                                    {{ asegurado.email }}
+                                </td>
+                                <td>{{ asegurado.titular_conyuge_dependiente }}</td>
+                                <td>
+                                    {% if asegurado.diagnosticos_relacionados.all %}
+                                        <div class="diagnoses-list">
+                                            {% for rel in asegurado.diagnosticos_relacionados.all %}
+                                                <div class="diagnosis-item mb-1">
+                                                    <span class="badge bg-info text-wrap text-start" 
+                                                          data-bs-toggle="tooltip" 
+                                                          title="Inicio: {{ rel.fecha_inicio_padecimiento|date:'d/m/Y' }}&#13;Primera atención: {{ rel.fecha_primera_atencion|date:'d/m/Y' }}">
+                                                        {{ rel.diagnostico.diagnostico }}
+                                                    </span>
+                                                </div>
+                                            {% endfor %}
+                                        </div>
+                                    {% else %}
+                                        <span class="text-muted">Sin diagnósticos</span>
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    <div class="btn-group" role="group">
+                                        <button type="button" class="btn btn-info btn-sm" data-bs-toggle="modal" data-bs-target="#detalleAsegurado{{ asegurado.pk }}">
+                                            <i class="fas fa-eye"></i>
+                                        </button>
+                                        <a href="{% url 'asegurado-update' asegurado.pk %}" class="btn btn-warning btn-sm">
+                                            <i class="fas fa-edit"></i>
+                                        </a>
+                                        <a href="{% url 'asegurado-delete' asegurado.pk %}" class="btn btn-danger btn-sm">
+                                            <i class="fas fa-trash"></i>
+                                        </a>
+                                    </div>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+            {% else %}
+            <div class="alert alert-info">
+                No hay asegurados registrados.
+            </div>
+            {% endif %}
+
+            <!-- Side Panel for Asegurado Details -->
+            <div id="sidePanel" class="side-panel">
+                <div class="side-panel-header">
+                    <h5>Detalles del Asegurado</h5>
+                    <div>
+                        <span class="close-btn" onclick="closeSidePanel()">&times;</span>
+                    </div>
+                </div>
+                <div id="aseguradoDetails">
+                    <div class="card mb-3">
+                        <div class="card-header bg-primary text-white">
+                            <h6 class="mb-0">Información del Asegurado</h6>
+                        </div>
+                        <div class="card-body" id="aseguradoInfo">
+                            <!-- Contenido dinámico -->
+                        </div>
+                    </div>
+
+                    <div class="card mb-3">
+                        <div class="card-header bg-info text-white">
+                            <h6 class="mb-0">Diagnósticos</h6>
+                        </div>
+                        <div class="card-body" id="diagnosticosInfo">
+                            <!-- Contenido dinámico de diagnósticos -->
+                        </div>
+                    </div>
+
+                    <!-- Nueva sección para documentos -->
+                    <div class="card mb-3">
+                        <div class="card-header bg-success text-white d-flex justify-content-between align-items-center">
+                            <h6 class="mb-0">Documentos</h6>
+                            <button class="btn btn-sm btn-light" onclick="subirDocumento()">
+                                <i class="fas fa-upload"></i> Subir
+                            </button>
+                        </div>
+                        <div class="card-body" id="documentosInfo">
+                            <!-- Contenido dinámico de documentos -->
+                        </div>
+                    </div>
+                    
+                    <div class="card mb-3">
+                        <div class="card-header bg-secondary text-white">
+                            <h6 class="mb-0">Información de la Póliza</h6>
+                        </div>
+                        <div class="card-body" id="polizaInfo">
+                            <!-- Contenido dinámico -->
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    let currentAseguradoId = null;
+
+    document.querySelectorAll('.asegurado-row').forEach(row => {
+        row.addEventListener('click', function() {
+            const aseguradoId = this.dataset.id;
+            openSidePanel(aseguradoId);
+        });
+    });
+
+    function openSidePanel(aseguradoId) {
+        currentAseguradoId = aseguradoId;
+        document.getElementById('sidePanel').classList.add('active');
+
+        // Mostrar indicadores de carga
+        document.getElementById('aseguradoInfo').innerHTML = '<div class="text-center"><i class="fas fa-spinner fa-spin"></i> Cargando...</div>';
+        document.getElementById('polizaInfo').innerHTML = '<div class="text-center"><i class="fas fa-spinner fa-spin"></i> Cargando...</div>';
+        document.getElementById('documentosInfo').innerHTML = '<div class="text-center"><i class="fas fa-spinner fa-spin"></i> Cargando...</div>';
+
+        fetch(`/gestor_asegurados/asegurados/${aseguradoId}/detalle/`)
+            .then(response => response.json())
+            .then(data => {
+                // Actualizar información del asegurado
+                document.getElementById('aseguradoInfo').innerHTML = `
+                    <dl class="row mb-0">
+                        <dt class="col-sm-4">ID:</dt>
+                        <dd class="col-sm-8">${data.id_asegurado}</dd>
+                        
+                        <dt class="col-sm-4">Nombre:</dt>
+                        <dd class="col-sm-8">${data.nombre_completo}</dd>
+                        
+                        <dt class="col-sm-4">Fecha Nac.:</dt>
+                        <dd class="col-sm-8">${data.fecha_nacimiento}</dd>
+                        
+                        <dt class="col-sm-4">Género:</dt>
+                        <dd class="col-sm-8">${data.genero}</dd>
+                        
+                        <dt class="col-sm-4">RFC:</dt>
+                        <dd class="col-sm-8">${data.rfc || '-'}</dd>
+                        
+                        <dt class="col-sm-4">Email:</dt>
+                        <dd class="col-sm-8">${data.email}</dd>
+                        
+                        <dt class="col-sm-4">Teléfono:</dt>
+                        <dd class="col-sm-8">${data.telefono}</dd>
+                        
+                        <dt class="col-sm-4">Tipo:</dt>
+                        <dd class="col-sm-8">${data.tipo_asegurado}</dd>
+                    </dl>
+                `;
+
+                // Actualizar diagnósticos con mejor formato y botón de reembolso
+                const diagnosticosHtml = data.diagnosticos && data.diagnosticos.length > 0 
+                    ? `
+                        <div class="table-responsive">
+                            <table class="table table-sm table-hover">
+                                <thead>
+                                    <tr>
+                                        <th>Diagnóstico</th>
+                                        <th>Fecha Inicio</th>
+                                        <th>Primera Atención</th>
+                                        <th>Acciones</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    ${data.diagnosticos.map(d => `
+                                        <tr>
+                                            <td>
+                                                <span class="badge bg-info text-wrap text-start">
+                                                    ${d.diagnostico}
+                                                </span>
+                                            </td>
+                                            <td>${d.fecha_inicio || '-'}</td>
+                                            <td>${d.fecha_primera_atencion || '-'}</td>
+                                            <td>
+                                                <button onclick="crearReembolso('${d.id}', '${d.diagnostico.replace(/'/g, "\\'")}')" 
+                                                        class="btn btn-success btn-sm">
+                                                    <i class="fas fa-plus"></i> Reembolso
+                                                </button>
+                                            </td>
+                                        </tr>
+                                    `).join('')}
+                                </tbody>
+                            </table>
+                        </div>
+                    ` 
+                    : `
+                        <div class="d-flex justify-content-between align-items-center">
+                            <p class="text-muted mb-0">Sin diagnósticos registrados</p>
+                            <button onclick="crearReembolso()" class="btn btn-success btn-sm">
+                                <i class="fas fa-plus"></i> Nuevo Reembolso
+                            </button>
+                        </div>
+                    `;
+
+                document.getElementById('diagnosticosInfo').innerHTML = diagnosticosHtml;
+
+                // Actualizar información de la póliza
+                document.getElementById('polizaInfo').innerHTML = `
+                    <dl class="row mb-0">
+                        <dt class="col-sm-4">ID Póliza:</dt>
+                        <dd class="col-sm-8">${data.poliza.id_poliza}</dd>
+                        
+                        <dt class="col-sm-4">Número:</dt>
+                        <dd class="col-sm-8">${data.poliza.numero_poliza}</dd>
+                        
+                        <dt class="col-sm-4">Aseguradora:</dt>
+                        <dd class="col-sm-8">${data.poliza.aseguradora}</dd>
+                        
+                        <dt class="col-sm-4">Plan:</dt>
+                        <dd class="col-sm-8">${data.poliza.plan}</dd>
+                        
+                        <dt class="col-sm-4">Tipo:</dt>
+                        <dd class="col-sm-8">${data.poliza.fisica_moral}</dd>
+                        
+                        <dt class="col-sm-4">Contratante Moral:</dt>
+                        <dd class="col-sm-8">${data.poliza.contratante_moral}</dd>
+                        
+                        <dt class="col-sm-4">Folio Mercantil:</dt>
+                        <dd class="col-sm-8">${data.poliza.folio_mercantil}</dd>
+                        
+                        <dt class="col-sm-12">Objeto Social:</dt>
+                        <dd class="col-sm-12">${data.poliza.objeto_social}</dd>
+                        
+                        <dt class="col-sm-12 mt-3 text-primary">Información del Titular</dt>
+                        <dd class="col-sm-12"><hr class="mt-0"></dd>
+                        
+                        <dt class="col-sm-4">Nombre Completo:</dt>
+                        <dd class="col-sm-8">${data.poliza.titular.nombre} ${data.poliza.titular.apellido_paterno} ${data.poliza.titular.apellido_materno}</dd>
+                        
+                        <dt class="col-sm-4">Fecha Nacimiento:</dt>
+                        <dd class="col-sm-8">${data.poliza.titular.fecha_nacimiento}</dd>
+                        
+                        <dt class="col-sm-4">Lugar Nacimiento:</dt>
+                        <dd class="col-sm-8">${data.poliza.titular.lugar_nacimiento}</dd>
+                        
+                        <dt class="col-sm-4">CURP:</dt>
+                        <dd class="col-sm-8">${data.poliza.titular.curp}</dd>
+                        
+                        <dt class="col-sm-4">País Nacimiento:</dt>
+                        <dd class="col-sm-8">${data.poliza.titular.pais_nacimiento}</dd>
+                        
+                        <dt class="col-sm-4">Nacionalidad:</dt>
+                        <dd class="col-sm-8">${data.poliza.titular.nacionalidad}</dd>
+                        
+                        <dt class="col-sm-4">RFC:</dt>
+                        <dd class="col-sm-8">${data.poliza.titular.rfc}</dd>
+                        
+                        <dt class="col-sm-4">Profesión:</dt>
+                        <dd class="col-sm-8">${data.poliza.titular.profesion}</dd>
+                        
+                        <dt class="col-sm-12 mt-3 text-primary">Dirección</dt>
+                        <dd class="col-sm-12"><hr class="mt-0"></dd>
+                        
+                        <dt class="col-sm-4">Dirección:</dt>
+                        <dd class="col-sm-8">
+                            ${data.poliza.direccion.calle} ${data.poliza.direccion.numero_exterior}
+                            ${data.poliza.direccion.numero_interior ? ', Int. ' + data.poliza.direccion.numero_interior : ''}
+                        </dd>
+                        
+                        <dt class="col-sm-4">Colonia:</dt>
+                        <dd class="col-sm-8">${data.poliza.direccion.colonia}</dd>
+                        
+                        <dt class="col-sm-4">Municipio:</dt>
+                        <dd class="col-sm-8">${data.poliza.direccion.municipio_delegacion}</dd>
+                        
+                        <dt class="col-sm-4">Estado:</dt>
+                        <dd class="col-sm-8">${data.poliza.direccion.entidad_federativa}</dd>
+                        
+                        <dt class="col-sm-4">Ciudad:</dt>
+                        <dd class="col-sm-8">${data.poliza.direccion.ciudad_poblacion}</dd>
+                        
+                        <dt class="col-sm-4">C.P.:</dt>
+                        <dd class="col-sm-8">${data.poliza.direccion.codigo_postal}</dd>
+                        
+                        <dt class="col-sm-12 mt-3 text-primary">Información Adicional</dt>
+                        <dd class="col-sm-12"><hr class="mt-0"></dd>
+                        
+                        <dt class="col-sm-4">Es Gobierno:</dt>
+                        <dd class="col-sm-8">${data.poliza.gobierno.es_gobierno ? 'Sí' : 'No'}</dd>
+                        ${data.poliza.gobierno.es_gobierno ? `
+                            <dt class="col-sm-4">Cargo:</dt>
+                            <dd class="col-sm-8">${data.poliza.gobierno.cargo}</dd>
+                            
+                            <dt class="col-sm-4">Dependencia:</dt>
+                            <dd class="col-sm-8">${data.poliza.gobierno.dependencia}</dd>
+                        ` : ''}
+                        
+                        <dt class="col-sm-4">Datos Bancarios:</dt>
+                        <dd class="col-sm-8">
+                            Banco: ${data.poliza.datos_bancarios.banco}<br>
+                            CLABE: ${data.poliza.datos_bancarios.clabe}<br>
+                            Titular: ${data.poliza.datos_bancarios.titular_contratante}
+                        </dd>
+                        ${data.poliza.tiene_pdf ? `
+                            <dt class="col-sm-4">PDF Póliza:</dt>
+                            <dd class="col-sm-8">
+                                <a href="${data.poliza.pdf_url}" target="_blank" class="btn btn-sm btn-info">
+                                    <i class="fas fa-file-pdf"></i> Ver PDF
+                                </a>
+                            </dd>
+                        ` : ''}
+                    </dl>
+                `;
+
+                // Actualizar documentos
+                if (data.documentos && data.documentos.length > 0) {
+                    let documentosHtml = `
+                        <div class="table-responsive">
+                            <table class="table table-sm">
+                                <thead>
+                                    <tr>
+                                        <th>Tipo</th>
+                                        <th>Nombre</th>
+                                        <th>Fecha</th>
+                                        <th>Acciones</th>
+                                    </tr>
+                                </thead>
+                                <tbody>`;
+                    
+                    data.documentos.forEach(doc => {
+                        documentosHtml += `
+                            <tr>
+                                <td>${doc.tipo_descripcion || 'N/A'}</td>
+                                <td>${doc.nombre_archivo}</td>
+                                <td>${doc.fecha_subida}</td>
+                                <td>
+                                    <a href="/documentos/ver/${doc.id_documento}" 
+                                       class="btn btn-info btn-sm">
+                                        <i class="fas fa-eye"></i>
+                                    </a>
+                                </td>
+                            </tr>`;
+                    });
+
+                    documentosHtml += `
+                                </tbody>
+                            </table>
+                        </div>`;
+                    document.getElementById('documentosInfo').innerHTML = documentosHtml;
+                } else {
+                    document.getElementById('documentosInfo').innerHTML = 
+                        '<p class="mb-0">No hay documentos asociados</p>';
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                document.getElementById('aseguradoInfo').innerHTML = 
+                    '<p class="text-danger">Error al cargar los datos del asegurado.</p>';
+                document.getElementById('diagnosticosInfo').innerHTML = 
+                    '<p class="text-danger">Error al cargar los diagnósticos.</p>';
+                document.getElementById('polizaInfo').innerHTML = 
+                    '<p class="text-danger">Error al cargar los datos de la póliza.</p>';
+                document.getElementById('documentosInfo').innerHTML = 
+                    '<p class="text-danger">Error al cargar los documentos.</p>';
+            });
+    }
+
+    function closeSidePanel() {
+        document.getElementById('sidePanel').classList.remove('active');
+    }
+
+    function subirDocumento() {
+        if (currentAseguradoId) {
+            window.location.href = `/documentos/subir/?asegurado=${currentAseguradoId}&return_to=asegurado`;
+        }
+    }
+
+    function crearReembolso(diagnosticoId, diagnosticoNombre) {
+        if (currentAseguradoId) {
+            const url = new URL('/reembolsos/nuevo/', window.location.origin);
+            url.searchParams.append('asegurado', currentAseguradoId);
+            if (diagnosticoId) {
+                url.searchParams.append('diagnostico', diagnosticoId);
+                url.searchParams.append('diagnostico_texto', encodeURIComponent(diagnosticoNombre));
+            }
+            window.location.href = url.toString();
+        }
+    }
+
+    function verDocumento(docId) {
+        // Función placeholder para futura implementación de visualización de documentos
+        console.log('Ver documento:', docId);
+    }
+
+    document.addEventListener('click', function(event) {
+        const sidePanel = document.getElementById('sidePanel');
+        const isClickInside = sidePanel.contains(event.target);
+        const isClickOnRow = event.target.closest('.asegurado-row');
+        
+        if (!isClickInside && !isClickOnRow && sidePanel.classList.contains('active')) {
+            closeSidePanel();
+        }
+    });
+
+    // Inicializar tooltips de Bootstrap
+    document.addEventListener('DOMContentLoaded', function() {
+        var tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'))
+        var tooltipList = tooltipTriggerList.map(function (tooltipTriggerEl) {
+            return new bootstrap.Tooltip(tooltipTriggerEl, {
+                html: true
+            })
+        })
+    });
+</script>
+{% endblock %}

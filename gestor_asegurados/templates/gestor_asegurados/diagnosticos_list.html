@@ -1,0 +1,16 @@
+{% extends 'base.html' %}
+
+{% block content %}
+  <h1>Diagnósticos</h1>
+  <ul>
+    {% for diagnostico in object_list %}
+      <li>
+        {{ diagnostico.nombre }} ({{ diagnostico.descripcion }})
+        <a href="{% url 'diagnostico_detail' diagnostico.pk %}">Ver detalles</a>
+      </li>
+    {% empty %}
+      <li>No hay diagnósticos registrados.</li>
+    {% endfor %}
+  </ul>
+  <a href="{% url 'diagnostico_create' %}">Crear nuevo diagnóstico</a>
+{% endblock %}

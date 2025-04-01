@@ -1,0 +1,621 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="container mt-4">
+    <div class="card">
+        <div class="card-header">
+            <h2>Nuevo Reembolso</h2>
+        </div>
+        <div class="card-body">
+            <form method="post" id="reembolsoForm">
+                {% csrf_token %}
+                
+                <div class="row">
+                    <!-- Información del Reembolso -->
+                    <div class="col-md-6">
+                        <h4>Información del Reembolso</h4>
+                        
+                        <div class="mb-3">
+                            <label for="{{ form.asegurado.id_for_label }}" class="form-label">Asegurado:</label>
+                            {{ form.asegurado }}
+                            {% if form.asegurado.errors %}
+                            <div class="alert alert-danger">{{ form.asegurado.errors }}</div>
+                            {% endif %}
+                        </div>
+
+                        <div class="mb-3">
+                            <label for="{{ form.poliza.id_for_label }}" class="form-label">Póliza:</label>
+                            {{ form.poliza }}
+                            {% if form.poliza.errors %}
+                            <div class="alert alert-danger">{{ form.poliza.errors }}</div>
+                            {% endif %}
+                        </div>
+
+                        <div class="mb-3">
+                            <label for="{{ form.monto_solicitado.id_for_label }}" class="form-label">Monto Solicitado:</label>
+                            {{ form.monto_solicitado }}
+                            {% if form.monto_solicitado.errors %}
+                            <div class="alert alert-danger">{{ form.monto_solicitado.errors }}</div>
+                            {% endif %}
+                        </div>
+                    </div>
+
+                    <!-- Información del Diagnóstico -->
+                    <div class="col-md-6">
+                        <h4>Diagnóstico</h4>
+                        
+                        <div id="diagnosticosExistentes" style="display: none;">
+                            <div class="mb-3">
+                                <label class="form-label">Seleccionar Diagnóstico Existente:</label>
+                                <select name="diagnostico_existente" class="form-select">
+                                    <option value="">- Seleccione un diagnóstico -</option>
+                                </select>
+                            </div>
+                            <div class="mb-3">
+                                <button type="button" class="btn btn-outline-primary" onclick="mostrarNuevoDiagnostico()">
+                                    Crear Nuevo Diagnóstico
+                                </button>
+                            </div>
+                        </div>
+
+                        <div id="nuevoDiagnostico">
+                            <div class="mb-3 position-relative">
+                                <label for="{{ diagnostico_form.diagnostico.id_for_label }}" class="form-label">Diagnóstico:</label>
+                                <input type="text" 
+                                       id="diagnostico_input" 
+                                       name="diagnostico" 
+                                       class="form-control"
+                                       autocomplete="off"
+                                       placeholder="Escriba para buscar o crear nuevo diagnóstico">
+                                <div id="diagnosticoSuggestions" class="diagnostico-suggestions"></div>
+                            </div>
+
+                            <div class="mb-3">
+                                <label for="{{ diagnostico_form.fecha_inicio_padecimiento.id_for_label }}" class="form-label">
+                                    Fecha de Inicio:
+                                </label>
+                                {{ diagnostico_form.fecha_inicio_padecimiento }}
+                            </div>
+
+                            <div class="mb-3">
+                                <label for="{{ diagnostico_form.fecha_primera_atencion.id_for_label }}" class="form-label">
+                                    Fecha Primera Atención:
+                                </label>
+                                {{ diagnostico_form.fecha_primera_atencion }}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Nueva sección para XMLs después del diagnóstico -->
+                <div class="row mt-4">
+                    <div class="col-12">
+                        <div class="card">
+                            <div class="card-header bg-info text-white">
+                                <h4 class="mb-0">Documentos XML</h4>
+                            </div>
+                            <div class="card-body">
+                                <div id="dropZone" class="border rounded p-4 text-center mb-3" 
+                                     style="min-height: 200px; border-style: dashed !important;">
+                                    <i class="fas fa-file-upload fa-3x mb-3"></i>
+                                    <h5>Arrastra aquí tus archivos XML</h5>
+                                    <p class="text-muted">o</p>
+                                    <input type="file" id="fileInput" multiple accept=".xml" class="d-none">
+                                    <button type="button" class="btn btn-outline-primary" onclick="document.getElementById('fileInput').click()">
+                                        Seleccionar archivos
+                                    </button>
+                                    <p class="text-muted mt-2">Máximo 18 archivos XML</p>
+                                </div>
+
+                                <div id="xmlList" class="table-responsive" style="display: none;">
+                                    <table class="table table-sm">
+                                        <thead>
+                                            <tr>
+                                                <th>UUID</th>
+                                                <th>Importe</th>
+                                                <th>Estado</th>
+                                                <th>Acciones</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody id="xmlTableBody">
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="row">
+                    <div class="col-12">
+                        <div class="mb-3">
+                            <label for="{{ form.comentarios.id_for_label }}" class="form-label">Comentarios:</label>
+                            {{ form.comentarios }}
+                        </div>
+                    </div>
+                </div>
+
+                <div class="mt-3">
+                    <button type="submit" class="btn btn-primary">Crear Reembolso</button>
+                    <a href="{% url 'gestor_reembolsos:lista_reembolsos' %}" class="btn btn-secondary">Cancelar</a>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<style>
+    /* Agregar estos estilos al principio del archivo */
+    .diagnostico-suggestions {
+        position: absolute;
+        z-index: 1000;
+        background: white;
+        border: 1px solid #ddd;
+        border-radius: 4px;
+        max-height: 200px;
+        overflow-y: auto;
+        width: 100%;
+        display: none;
+    }
+
+    .diagnostico-suggestion {
+        padding: 8px 12px;
+        cursor: pointer;
+    }
+
+    .diagnostico-suggestion:hover {
+        background-color: #f8f9fa;
+    }
+</style>
+
+<script>
+    function cargarDiagnosticos(aseguradoId) {
+        if (!aseguradoId) {
+            ocultarDiagnosticosExistentes();
+            return;
+        }
+
+        // Actualizar la póliza automáticamente
+        fetch(`/gestor_asegurados/asegurados/${aseguradoId}/detalle/`)
+            .then(response => response.json())
+            .then(data => {
+                const polizaInput = document.querySelector('input[name="poliza"]');
+                polizaInput.value = data.poliza.id_poliza;
+            })
+            .catch(error => {
+                console.error('Error al cargar la póliza:', error);
+            });
+
+        // Cargar diagnósticos existentes
+        fetch(`/reembolsos/diagnosticos/${aseguradoId}/`)
+            .then(response => response.json())
+            .then(data => {
+                const select = document.querySelector('select[name="diagnostico_existente"]');
+                select.innerHTML = '<option value="">- Seleccione un diagnóstico -</option>';
+                
+                if (data && data.length > 0) {
+                    data.forEach(diag => {
+                        const fechaInicio = new Date(diag.fecha_inicio_padecimiento).toLocaleDateString();
+                        select.innerHTML += `
+                            <option value="${diag.id_diagnostico}" 
+                                    data-fecha-inicio="${diag.fecha_inicio_padecimiento}"
+                                    data-fecha-atencion="${diag.fecha_primera_atencion}">
+                                ${diag.diagnostico} (Inicio: ${fechaInicio})
+                            </option>
+                        `;
+                    });
+                    mostrarDiagnosticosExistentes();
+                } else {
+                    ocultarDiagnosticosExistentes();
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                ocultarDiagnosticosExistentes();
+            });
+    }
+
+    function mostrarDiagnosticosExistentes() {
+        document.getElementById('diagnosticosExistentes').style.display = 'block';
+        document.getElementById('nuevoDiagnostico').style.display = 'none';
+    }
+
+    function ocultarDiagnosticosExistentes() {
+        document.getElementById('diagnosticosExistentes').style.display = 'none';
+        document.getElementById('nuevoDiagnostico').style.display = 'block';
+    }
+
+    function mostrarNuevoDiagnostico() {
+        document.getElementById('nuevoDiagnostico').style.display = 'block';
+        document.getElementById('diagnosticosExistentes').style.display = 'none';
+        document.querySelector('select[name="diagnostico_existente"]').value = '';
+    }
+
+    // Manejar el cambio de diagnóstico existente
+    document.querySelector('select[name="diagnostico_existente"]').addEventListener('change', function() {
+        const selectedOption = this.options[this.selectedIndex];
+        if (selectedOption.value) {
+            // Autocompletar fechas si se selecciona un diagnóstico existente
+            document.querySelector('input[name="fecha_inicio_padecimiento"]').value = 
+                selectedOption.dataset.fechaInicio;
+            document.querySelector('input[name="fecha_primera_atencion"]').value = 
+                selectedOption.dataset.fechaAtencion;
+        }
+    });
+
+    // Inicialización del formulario
+    document.addEventListener('DOMContentLoaded', function() {
+        const aseguradoSelect = document.querySelector('select[name="asegurado"]');
+        if (aseguradoSelect.value) {
+            cargarDiagnosticos(aseguradoSelect.value);
+        }
+    });
+
+    // Mantener el código JavaScript existente y agregar:
+
+    let uploadedFiles = [];
+    let totalImporte = 0;
+
+    function updateTotalImporte() {
+        totalImporte = uploadedFiles.reduce((sum, file) => {
+            const importe = parseFloat(file.datos_xml.comprobante.Total) || 0;
+            return sum + importe;
+        }, 0);
+        
+        // Actualizar el campo de monto solicitado
+        const montoInput = document.querySelector('input[name="monto_solicitado"]');
+        montoInput.value = totalImporte.toFixed(2);
+    }
+
+    function setupDragAndDrop() {
+        const dropZone = document.getElementById('dropZone');
+        const fileInput = document.getElementById('fileInput');
+
+        ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
+            dropZone.addEventListener(eventName, preventDefaults, false);
+        });
+
+        function preventDefaults(e) {
+            e.preventDefault();
+            e.stopPropagation();
+        }
+
+        ['dragenter', 'dragover'].forEach(eventName => {
+            dropZone.addEventListener(eventName, highlight, false);
+        });
+
+        ['dragleave', 'drop'].forEach(eventName => {
+            dropZone.addEventListener(eventName, unhighlight, false);
+        });
+
+        function highlight(e) {
+            dropZone.classList.add('bg-light');
+        }
+
+        function unhighlight(e) {
+            dropZone.classList.remove('bg-light');
+        }
+
+        dropZone.addEventListener('drop', handleDrop, false);
+        fileInput.addEventListener('change', handleFiles, false);
+
+        function handleDrop(e) {
+            const dt = e.dataTransfer;
+            const files = dt.files;
+            handleFiles({ target: { files: files } });
+        }
+    }
+
+    function handleFiles(e) {
+        const files = [...e.target.files];
+        if (uploadedFiles.length + files.length > 18) {
+            alert('No puedes subir más de 18 archivos XML');
+            return;
+        }
+
+        files.forEach(file => {
+            if (!file.name.toLowerCase().endsWith('.xml')) {
+                alert('Solo se permiten archivos XML');
+                return;
+            }
+
+            const formData = new FormData();
+            formData.append('archivo', file);
+            formData.append('csrfmiddlewaretoken', document.querySelector('[name=csrfmiddlewaretoken]').value);
+
+            // Agregar fila temporal
+            const tempRow = addXmlRow({
+                uuid: 'Procesando...',
+                importe: 'Procesando...',
+                estado: 'Subiendo...',
+                id: Date.now()
+            });
+
+            fetch('/documentos/api/upload-xml/', {
+                method: 'POST',
+                body: formData
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.error) {
+                    throw new Error(data.error);
+                }
+                
+                uploadedFiles.push(data);
+                updateXmlRow(tempRow, {
+                    uuid: data.datos_xml.timbre.UUID,
+                    importe: data.datos_xml.comprobante.Total,
+                    estado: 'Cargado',
+                    id: data.id_documento
+                });
+                
+                // Actualizar el total después de cada archivo exitoso
+                updateTotalImporte();
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                updateXmlRow(tempRow, {
+                    uuid: 'Error',
+                    importe: 'Error',
+                    estado: error.message,
+                    id: null
+                }, true);
+            });
+        });
+
+        document.getElementById('xmlList').style.display = 'block';
+    }
+
+    function addXmlRow(data) {
+        const tbody = document.getElementById('xmlTableBody');
+        const row = tbody.insertRow();
+        row.id = `xml-row-${data.id}`;
+        row.innerHTML = `
+            <td>${data.uuid}</td>
+            <td>${data.importe}</td>
+            <td>${data.estado}</td>
+            <td>
+                <button type="button" class="btn btn-danger btn-sm" onclick="removeXml('${data.id}')">
+                    <i class="fas fa-trash"></i>
+                </button>
+            </td>
+        `;
+        return row;
+    }
+
+    function updateXmlRow(row, data, isError = false) {
+        if (isError) {
+            row.classList.add('table-danger');
+        } else {
+            // Agregar campo oculto para el ID del documento
+            const hiddenInput = document.createElement('input');
+            hiddenInput.type = 'hidden';
+            hiddenInput.name = 'documentos_xml';
+            hiddenInput.value = data.id_documento;
+            document.getElementById('reembolsoForm').appendChild(hiddenInput);
+        }
+        row.cells[0].textContent = data.uuid;
+        row.cells[1].textContent = data.importe;
+        row.cells[2].textContent = data.estado;
+    }
+
+    function removeXml(id) {
+        const row = document.getElementById(`xml-row-${id}`);
+        if (row) {
+            row.remove();
+            uploadedFiles = uploadedFiles.filter(file => file.id_documento != id);
+            // Remover campo oculto del documento
+            const hiddenInput = document.querySelector(`input[name="documentos_xml"][value="${id}"]`);
+            if (hiddenInput) {
+                hiddenInput.remove();
+            }
+            // Actualizar el total después de eliminar un archivo
+            updateTotalImporte();
+        }
+    }
+
+    // Inicializar el drag and drop cuando se carga la página
+    document.addEventListener('DOMContentLoaded', function() {
+        setupDragAndDrop();
+        // ...existing DOMContentLoaded code...
+    });
+
+    let typingTimer;
+    const doneTypingInterval = 300;
+
+    document.getElementById('diagnostico_input').addEventListener('input', function(e) {
+        clearTimeout(typingTimer);
+        const query = this.value;
+        
+        if (query.length < 2) {
+            document.getElementById('diagnosticoSuggestions').style.display = 'none';
+            return;
+        }
+
+        typingTimer = setTimeout(() => {
+            fetch(`/reembolsos/api/buscar-diagnosticos/?q=${encodeURIComponent(query)}`)
+                .then(response => response.json())
+                .then(data => {
+                    const suggestionsDiv = document.getElementById('diagnosticoSuggestions');
+                    if (data.length > 0) {
+                        suggestionsDiv.innerHTML = data.map(diag => `
+                            <div class="diagnostico-suggestion" 
+                                 onclick="seleccionarDiagnostico('${diag.diagnostico}', '${diag.id_diagnostico}', '${diag.tipo}', ${diag.fecha_inicio_padecimiento ? `'${diag.fecha_inicio_padecimiento}'` : null}, ${diag.fecha_primera_atencion ? `'${diag.fecha_primera_atencion}'` : null})">
+                                <i class="fas ${diag.tipo === 'catalogo' ? 'fa-book' : 'fa-history'}"></i>
+                                ${diag.diagnostico}
+                                <small class="text-muted">${diag.tipo === 'catalogo' ? '(Del catálogo)' : '(Existente)'}</small>
+                            </div>
+                        `).join('');
+                        suggestionsDiv.style.display = 'block';
+                    } else {
+                        // Si no hay resultados, mostrar opción para crear nuevo
+                        suggestionsDiv.innerHTML = `
+                            <div class="diagnostico-suggestion" onclick="crearNuevoDiagnostico('${query}')">
+                                <i class="fas fa-plus"></i>
+                                Crear nuevo diagnóstico: "${query}"
+                            </div>
+                        `;
+                        suggestionsDiv.style.display = 'block';
+                    }
+                });
+        }, doneTypingInterval);
+    });
+
+    function seleccionarDiagnostico(descripcion, id, tipo, fechaInicio, fechaAtencion) {
+        document.getElementById('diagnostico_input').value = descripcion;
+        document.getElementById('diagnosticoSuggestions').style.display = 'none';
+        
+        // Si es del catálogo, limpiar fechas para que el usuario las ingrese
+        if (tipo === 'catalogo') {
+            const fechaInicioPad = document.querySelector('input[name="fecha_inicio_padecimiento"]');
+            const fechaPrimeraAten = document.querySelector('input[name="fecha_primera_atencion"]');
+            
+            fechaInicioPad.value = '';
+            fechaPrimeraAten.value = '';
+            fechaInicioPad.required = true;
+            fechaPrimeraAten.required = true;
+        } else {
+            // Si es existente, usar las fechas proporcionadas
+            if (fechaInicio) document.querySelector('input[name="fecha_inicio_padecimiento"]').value = fechaInicio;
+            if (fechaAtencion) document.querySelector('input[name="fecha_primera_atencion"]').value = fechaAtencion;
+        }
+        
+        // Guardar información del diagnóstico
+        if (!document.getElementById('diagnostico_id_hidden')) {
+            const hiddenInput = document.createElement('input');
+            hiddenInput.type = 'hidden';
+            hiddenInput.name = 'diagnostico_id';
+            hiddenInput.id = 'diagnostico_id_hidden';
+            document.getElementById('reembolsoForm').appendChild(hiddenInput);
+        }
+        document.getElementById('diagnostico_id_hidden').value = id;
+        
+        // Agregar campo para identificar tipo de diagnóstico
+        if (!document.getElementById('diagnostico_tipo_hidden')) {
+            const tipoInput = document.createElement('input');
+            tipoInput.type = 'hidden';
+            tipoInput.name = 'diagnostico_tipo';
+            tipoInput.id = 'diagnostico_tipo_hidden';
+            document.getElementById('reembolsoForm').appendChild(tipoInput);
+        }
+        document.getElementById('diagnostico_tipo_hidden').value = tipo;
+    }
+
+    function crearNuevoDiagnostico(descripcion) {
+        document.getElementById('diagnostico_input').value = descripcion;
+        document.getElementById('diagnosticoSuggestions').style.display = 'none';
+        
+        // Limpiar y habilitar campos de fecha
+        const fechaInicioPad = document.querySelector('input[name="fecha_inicio_padecimiento"]');
+        const fechaPrimeraAten = document.querySelector('input[name="fecha_primera_atencion"]');
+        
+        fechaInicioPad.value = '';
+        fechaPrimeraAten.value = '';
+        fechaInicioPad.required = true;
+        fechaPrimeraAten.required = true;
+        
+        // Marcar como nuevo diagnóstico
+        if (!document.getElementById('diagnostico_nuevo_hidden')) {
+            const hiddenInput = document.createElement('input');
+            hiddenInput.type = 'hidden';
+            hiddenInput.name = 'nuevo_diagnostico';
+            hiddenInput.id = 'diagnostico_nuevo_hidden';
+            document.getElementById('reembolsoForm').appendChild(hiddenInput);
+        }
+        document.getElementById('diagnostico_nuevo_hidden').value = 'true';
+    }
+
+    // Cerrar sugerencias al hacer clic fuera
+    document.addEventListener('click', function(e) {
+        if (!e.target.closest('#diagnostico_input')) {
+            document.getElementById('diagnosticoSuggestions').style.display = 'none';
+        }
+    });
+
+    // Reemplazar la función de validación del formulario
+    document.getElementById('reembolsoForm').addEventListener('submit', async function(e) {
+        e.preventDefault();
+        
+        // Obtener el nombre completo del asegurado
+        const aseguradoSelect = document.querySelector('select[name="asegurado"]');
+        const nombreCompleto = aseguradoSelect.options[aseguradoSelect.selectedIndex].text;
+        
+        // Mostrar diálogo de confirmación
+        if (!confirm(`El siguiente nombre se imprimirá en el formato:\n\n${nombreCompleto}\n\n¿Es correcto?`)) {
+            return;
+        }
+
+        // Continuar con la validación existente
+        const asegurado = aseguradoSelect.value;
+        const poliza = document.querySelector('input[name="poliza"]').value;
+        const montoSolicitado = document.querySelector('input[name="monto_solicitado"]').value;
+        const diagnostico = document.getElementById('diagnostico_input').value;
+        const fechaInicio = document.querySelector('input[name="fecha_inicio_padecimiento"]').value;
+        const fechaAtencion = document.querySelector('input[name="fecha_primera_atencion"]').value;
+
+        let isValid = true;
+        let errorMessage = '';
+
+        if (!asegurado) {
+            errorMessage += 'Seleccione un asegurado\n';
+            isValid = false;
+        }
+        if (!poliza) {
+            errorMessage += 'La póliza es requerida\n';
+            isValid = false;
+        }
+        if (!montoSolicitado) {
+            errorMessage += 'Ingrese el monto solicitado\n';
+            isValid = false;
+        }
+        if (!diagnostico) {
+            errorMessage += 'Ingrese o seleccione un diagnóstico\n';
+            isValid = false;
+        }
+        if (!fechaInicio) {
+            errorMessage += 'Ingrese la fecha de inicio del padecimiento\n';
+            isValid = false;
+        }
+        if (!fechaAtencion) {
+            errorMessage += 'Ingrese la fecha de primera atención\n';
+            isValid = false;
+        }
+
+        if (!isValid) {
+            alert('Por favor complete los siguientes campos:\n\n' + errorMessage);
+            return;
+        }
+
+        try {
+            const formData = new FormData(this);
+            formData.append('poliza', poliza);
+            
+            const response = await fetch(this.action, {
+                method: 'POST',
+                body: formData,
+                headers: {
+                    'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value
+                }
+            });
+
+            if (response.ok) {
+                // Si la respuesta es un PDF, manejarlo
+                const contentType = response.headers.get('content-type');
+                if (contentType && contentType.includes('application/pdf')) {
+                    const blob = await response.blob();
+                    const url = window.URL.createObjectURL(blob);
+                    window.open(url, '_blank');
+                    window.location.href = '/reembolsos/';  // Redirigir a la lista después de abrir el PDF
+                } else {
+                    window.location.href = '/reembolsos/';  // Redirigir directamente si no hay PDF
+                }
+            } else {
+                throw new Error('Error al crear el reembolso');
+            }
+        } catch (error) {
+            console.error('Error:', error);
+            alert('Error al procesar el reembolso. Por favor intente nuevamente.');
+        }
+    });
+</script>
+{% endblock %}

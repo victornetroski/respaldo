@@ -1,0 +1,37 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="container mt-4">
+    <div class="card">
+        <div class="card-header">
+            <h2>Gestión de Aseguradoras</h2>
+        </div>
+        <div class="card-body">
+            {% if aseguradoras %}
+            <table class="table">
+                <thead class="table-dark">
+                    <tr>
+                        <th>ID</th>
+                        <th>Nombre</th>
+                        <th>Nombre Corto</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for aseguradora in aseguradoras %}
+                    <tr>
+                        <td>{{ aseguradora.id_aseguradora }}</td>
+                        <td>{{ aseguradora.nombre }}</td>
+                        <td>{{ aseguradora.nombre_corto }}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+            {% else %}
+            <div class="alert alert-info">
+                No hay aseguradoras registradas.
+            </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+{% endblock %}

@@ -1,0 +1,11 @@
+{% extends 'base.html' %}
+
+{% block content %}
+  <h1>Detalles del Diagnóstico</h1>
+  <p>Nombre: {{ diagnostico.nombre }}</p>
+  <p>Descripción: {{ diagnostico.descripcion }}</p>
+  <!-- Agrega más campos según sea necesario -->
+  <p>Fecha de creación: {{ diagnostico.fecha_creacion }}</p>
+  <p>Fecha de actualización: {{ diagnostico.fecha_actualizacion }}</p>
+  <a href="{% url 'diagnostico-list' %}">Volver a la lista de diagnósticos</a>
+{% endblock %}
