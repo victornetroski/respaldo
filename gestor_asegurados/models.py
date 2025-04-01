@@ -143,7 +143,7 @@ class Diagnosticos(models.Model):
         primary_key=True,
         help_text="Identificador único alfanumérico del diagnóstico"
     )
-    diagnostico = models.CharField(max_length=255)
+    descripcion_diagnostico = models.CharField(max_length=255)
     asegurados = models.ManyToManyField(
         Asegurado,
         through='DiagnosticoAsegurado',
@@ -155,7 +155,7 @@ class Diagnosticos(models.Model):
     fecha_actualizacion = models.DateTimeField(auto_now=True)
 
     def __str__(self):
-        return self.diagnostico
+        return self.descripcion_diagnostico
 
     class Meta:
         verbose_name = "Diagnostico"

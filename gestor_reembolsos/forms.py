@@ -66,35 +66,60 @@ class ReembolsoForm(forms.ModelForm):
                 pass
 
 class DiagnosticoReembolsoForm(forms.ModelForm):
-    usar_existente = forms.BooleanField(required=False, initial=False)
     diagnostico_existente = forms.ModelChoiceField(
         queryset=Diagnosticos.objects.none(),
         required=False,
-        empty_label="Seleccione un diagnóstico existente",
-        widget=forms.Select(attrs={'class': 'form-select'})
+        label='Diagnóstico Existente'
+    )
+    diagnostico_nuevo = forms.CharField(
+        required=False,
+        label='Nuevo Diagnóstico'
+    )
+    diagnostico_tipo = forms.ChoiceField(
+        choices=[
+            ('existente', 'Seleccionar Existente'),
+            ('nuevo', 'Crear Nuevo')
+        ],
+        initial='existente'
+    )
+    fecha_inicio_padecimiento = forms.DateField(
+        required=False,
+        widget=forms.DateInput(attrs={'type': 'date'}),
+        label='Fecha de Inicio del Padecimiento'
+    )
+    fecha_primera_atencion = forms.DateField(
+        required=False,
+        widget=forms.DateInput(attrs={'type': 'date'}),
+        label='Fecha de Primera Atención'
     )
 
     class Meta:
         model = Diagnosticos
-        fields = ['diagnostico', 'fecha_inicio_padecimiento', 'fecha_primera_atencion']
-        widgets = {
-            'diagnostico': forms.TextInput(attrs={
-                'class': 'form-control',
-                'placeholder': 'Descripción del diagnóstico'
-            }),
-            'fecha_inicio_padecimiento': forms.DateInput(attrs={
-                'type': 'date',
-                'class': 'form-control'
-            }),
-            'fecha_primera_atencion': forms.DateInput(attrs={
-                'type': 'date',
-                'class': 'form-control'
-            })
-        }
+        fields = ['descripcion_diagnostico']
 
     def __init__(self, *args, **kwargs):
         asegurado_id = kwargs.pop('asegurado_id', None)
         super().__init__(*args, **kwargs)
+        
+        # Ocultar el campo descripcion_diagnostico ya que usaremos los campos personalizados
+        self.fields['descripcion_diagnostico'].widget = forms.HiddenInput()
+        
         if asegurado_id:
-            asegurado = Asegurado.objects.get(id_asegurado=asegurado_id)
-            self.fields['diagnostico_existente'].queryset = asegurado.diagnosticos_relacionados.all()
+            try:
+                asegurado = Asegurado.objects.get(id_asegurado=asegurado_id)
+                self.fields['diagnostico_existente'].queryset = asegurado.diagnosticos_relacionados.all()
+            except Asegurado.DoesNotExist:
+                self.fields['diagnostico_existente'].queryset = Diagnosticos.objects.none()
+
+    def clean(self):
+        cleaned_data = super().clean()
+        diagnostico_tipo = cleaned_data.get('diagnostico_tipo')
+        diagnostico_existente = cleaned_data.get('diagnostico_existente')
+        diagnostico_nuevo = cleaned_data.get('diagnostico_nuevo')
+
+        if diagnostico_tipo == 'existente' and not diagnostico_existente:
+            raise forms.ValidationError('Debe seleccionar un diagnóstico existente.')
+        elif diagnostico_tipo == 'nuevo' and not diagnostico_nuevo:
+            raise forms.ValidationError('Debe ingresar un nuevo diagnóstico.')
+
+        return cleaned_data

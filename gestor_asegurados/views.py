@@ -220,7 +220,7 @@ def asegurado_detalle(request, pk):
                 
                 diagnosticos_data.append({
                     'id': str(rel.diagnostico.id_diagnostico),
-                    'diagnostico': rel.diagnostico.diagnostico or '',
+                    'diagnostico': rel.diagnostico.descripcion_diagnostico or '',
                     'fecha_inicio': fecha_inicio,
                     'fecha_primera_atencion': fecha_atencion,
                 })
@@ -328,7 +328,7 @@ def get_asegurado_detail(request, asegurado_id):
         # Obtener diagnósticos relacionados a través de la tabla intermedia
         diagnosticos = [{
             'id': rel.diagnostico.id_diagnostico,
-            'diagnostico': rel.diagnostico.diagnostico,
+            'diagnostico': rel.diagnostico.descripcion_diagnostico,
             'fecha_inicio': rel.fecha_inicio_padecimiento.strftime('%d/%m/%Y'),
             'fecha_primera_atencion': rel.fecha_primera_atencion.strftime('%d/%m/%Y')
         } for rel in asegurado.diagnosticos_relacionados.select_related('diagnostico').all()]
@@ -352,12 +352,10 @@ def get_asegurado_detail(request, asegurado_id):
 
 @login_required
 def get_diagnosticos(request):
-    """Vista para obtener los diagnósticos disponibles"""
     query = request.GET.get('q', '')
     asegurado_id = request.GET.get('asegurado_id')
     
     if (asegurado_id):
-        # Obtener diagnósticos del asegurado
         asegurado = get_object_or_404(Asegurado, id_asegurado=asegurado_id)
         diagnosticos = asegurado.diagnosticos_relacionados.all().select_related('diagnostico')
         data = []
@@ -365,7 +363,7 @@ def get_diagnosticos(request):
             try:
                 data.append({
                     'id': rel.diagnostico.id_diagnostico,
-                    'diagnostico': rel.diagnostico.diagnostico,  # Cambiado de 'texto' a 'diagnostico'
+                    'diagnostico': rel.diagnostico.descripcion_diagnostico,
                     'fecha_inicio': rel.fecha_inicio_padecimiento.strftime('%Y-%m-%d') if rel.fecha_inicio_padecimiento else None,
                     'fecha_primera_atencion': rel.fecha_primera_atencion.strftime('%Y-%m-%d') if rel.fecha_primera_atencion else None
                 })
@@ -375,9 +373,8 @@ def get_diagnosticos(request):
                 
         return JsonResponse(data, safe=False)
     
-    # Búsqueda general de diagnósticos
-    diagnosticos = Diagnosticos.objects.filter(diagnostico__icontains=query)[:10]
-    data = [{'id': d.id_diagnostico, 'diagnostico': d.diagnostico} for d in diagnosticos]  # Cambiado de 'texto' a 'diagnostico'
+    diagnosticos = Diagnosticos.objects.filter(descripcion_diagnostico__icontains=query)[:10]
+    data = [{'id': d.id_diagnostico, 'diagnostico': d.descripcion_diagnostico} for d in diagnosticos]
     return JsonResponse(data, safe=False)
 
 class DiagnosticosListView(LoginRequiredMixin, ListView):
@@ -389,7 +386,7 @@ class DiagnosticosListView(LoginRequiredMixin, ListView):
 class DiagnosticoCreateView(LoginRequiredMixin, CreateView):
     model = Diagnosticos
     template_name = 'gestor_asegurados/diagnostico/form.html'
-    fields = ['diagnostico']
+    fields = ['descripcion_diagnostico']
     success_url = reverse_lazy('diagnostico-list')
 
 class DiagnosticoDetailView(DetailView):
@@ -398,3 +395,27 @@ class DiagnosticoDetailView(DetailView):
 
     def get_object(self, queryset=None):
         return get_object_or_404(Diagnosticos, pk=self.kwargs['pk'])
+
+@login_required
+def get_diagnosticos_asegurado(request, asegurado_id):
+    try:
+        asegurado = Asegurado.objects.get(id_asegurado=asegurado_id)
+        diagnosticos = asegurado.diagnosticos_relacionados.all().select_related('diagnostico')
+        data = [{
+            'id': rel.diagnostico.id_diagnostico,
+            'diagnostico': rel.diagnostico.descripcion_diagnostico,
+            'fecha_inicio': rel.fecha_inicio_padecimiento.strftime('%Y-%m-%d') if rel.fecha_inicio_padecimiento else None,
+            'fecha_primera_atencion': rel.fecha_primera_atencion.strftime('%Y-%m-%d') if rel.fecha_primera_atencion else None
+        } for rel in diagnosticos]
+        return JsonResponse(data, safe=False)
+    except Asegurado.DoesNotExist:
+        return JsonResponse({'error': 'Asegurado no encontrado'}, status=404)
+    except Exception as e:
+        return JsonResponse({'error': str(e)}, status=500)
+
+@login_required
+def buscar_diagnosticos(request):
+    query = request.GET.get('q', '')
+    diagnosticos = Diagnosticos.objects.filter(descripcion_diagnostico__icontains=query)[:10]
+    data = [{'id': d.id_diagnostico, 'diagnostico': d.descripcion_diagnostico} for d in diagnosticos]
+    return JsonResponse(data, safe=False)

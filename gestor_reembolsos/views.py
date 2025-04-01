@@ -49,7 +49,7 @@ def get_diagnosticos_asegurado(request, asegurado_id):
         
         data = [{
             'id': rel.diagnostico.id_diagnostico,
-            'diagnostico': rel.diagnostico.diagnostico,
+            'diagnostico': rel.diagnostico.descripcion_diagnostico,
             'fecha_inicio': rel.fecha_inicio_padecimiento.strftime('%d/%m/%Y') if rel.fecha_inicio_padecimiento else None,
             'fecha_atencion': rel.fecha_primera_atencion.strftime('%d/%m/%Y') if rel.fecha_primera_atencion else None,
             'tipo': 'existente'
@@ -70,7 +70,7 @@ def buscar_diagnosticos(request):
     
     if query:
         diagnosticos = Diagnosticos.objects.filter(
-            Q(diagnostico__icontains=query) &
+            Q(descripcion_diagnostico__icontains=query) &
             Q(diagnosticoasegurado__asegurado__id_asegurado=asegurado_id)
         ).distinct()
 
@@ -89,7 +89,7 @@ def buscar_diagnosticos(request):
                     
                     resultados.append({
                         'id_diagnostico': diag.id_diagnostico,
-                        'diagnostico': diag.diagnostico,
+                        'diagnostico': diag.descripcion_diagnostico,
                         'tipo': 'existente',
                         'fecha_inicio_padecimiento': fecha_inicio,
                         'fecha_primera_atencion': fecha_atencion
@@ -116,16 +116,18 @@ def crear_reembolso(request):
     form_initial_data = {}
     if initial_asegurado_id:
         try:
-            # Validar que el asegurado exista antes de pasarlo a initial
             Asegurado.objects.get(id_asegurado=initial_asegurado_id)
             form_initial_data['asegurado'] = initial_asegurado_id
         except Asegurado.DoesNotExist:
-             # Si el asegurado de la URL no existe, no lo pre-seleccionamos
-             print(f"Advertencia: Asegurado con ID {initial_asegurado_id} de la URL no encontrado.")
+            print(f"Advertencia: Asegurado con ID {initial_asegurado_id} de la URL no encontrado.")
         
     form = ReembolsoForm(initial=form_initial_data)
-    # El DiagnosticoReembolsoForm se deja vacío, la lógica de inicialización estará en la plantilla/JS
-    diagnostico_form = DiagnosticoReembolsoForm()
+    
+    # Inicializar el formulario de diagnóstico
+    diagnostico_form = DiagnosticoReembolsoForm(initial={
+        'diagnostico_existente': initial_diagnostico_id,
+        'diagnostico_nuevo': initial_diagnostico_texto
+    })
     
     if request.method == 'POST':
         try:
@@ -160,45 +162,33 @@ def crear_reembolso(request):
                     diagnostico_id = post_data.get('diagnostico_id')
                     diagnostico_tipo = post_data.get('diagnostico_tipo')
                     diagnostico_texto = post_data.get('diagnostico')
-                    fecha_inicio_str = post_data.get('fecha_inicio_padecimiento') # Asegúrate que estos nombres coincidan con tu form/JS
+                    fecha_inicio_str = post_data.get('fecha_inicio_padecimiento')
                     fecha_atencion_str = post_data.get('fecha_primera_atencion')
 
-                    diagnostico_obj = None # Inicializar variable
+                    diagnostico_obj = None
                     
-                    # Intentar obtener diagnóstico existente si se proporcionó un ID válido
                     if diagnostico_tipo == 'existente' and diagnostico_id and diagnostico_id != 'undefined':
                         try:
                             diagnostico_obj = Diagnosticos.objects.get(id_diagnostico=diagnostico_id)
-                            # Asegurarse que la relación con el asegurado exista
                             DiagnosticoAsegurado.objects.get_or_create(
                                 diagnostico=diagnostico_obj,
                                 asegurado=asegurado
-                                # Aquí podrías actualizar las fechas si es necesario, pero cuidado con sobreescribir datos existentes
                             )
                         except Diagnosticos.DoesNotExist:
-                             print(f"Diagnóstico existente {diagnostico_id} no encontrado, se intentará crear uno nuevo.")
-                             # Si no se encuentra, se creará uno nuevo si hay texto
+                            print(f"Diagnóstico existente {diagnostico_id} no encontrado, se intentará crear uno nuevo.")
                     
-                    # Crear nuevo diagnóstico si no se encontró/seleccionó uno existente y hay texto
                     if not diagnostico_obj and diagnostico_texto:
-                         # Generar un ID único para el nuevo diagnóstico
-                         nuevo_id_diagnostico = f"DIAG-{uuid.uuid4().hex[:8].upper()}"
-                         diagnostico_obj = Diagnosticos.objects.create(
+                        nuevo_id_diagnostico = f"DIAG-{uuid.uuid4().hex[:8].upper()}"
+                        diagnostico_obj = Diagnosticos.objects.create(
                             id_diagnostico=nuevo_id_diagnostico,
-                            diagnostico=diagnostico_texto
-                         )
-                         # Crear la relación DiagnosticoAsegurado con fechas si se proporcionaron
-                         # Es importante validar/convertir las fechas aquí si vienen del POST
-                         DiagnosticoAsegurado.objects.create(
-                             diagnostico=diagnostico_obj,
-                             asegurado=asegurado,
-                             # Convertir fechas si vienen en formato específico
-                             # fecha_inicio_padecimiento=datetime.strptime(fecha_inicio_str, '%Y-%m-%d').date() if fecha_inicio_str else None,
-                             # fecha_primera_atencion=datetime.strptime(fecha_atencion_str, '%Y-%m-%d').date() if fecha_atencion_str else None
-                         )
+                            descripcion_diagnostico=diagnostico_texto
+                        )
+                        DiagnosticoAsegurado.objects.create(
+                            diagnostico=diagnostico_obj,
+                            asegurado=asegurado
+                        )
                     elif not diagnostico_obj:
-                         # Si no hay ID existente válido ni texto para crear uno nuevo, es un error
-                         raise ValueError("No se proporcionó información de diagnóstico válida (ni existente ni nuevo).")
+                        raise ValueError("No se proporcionó información de diagnóstico válida (ni existente ni nuevo).")
 
                     # 4. Crear reclamación solo si tenemos un diagnóstico válido
                     if diagnostico_obj:
@@ -278,12 +268,12 @@ def crear_reembolso(request):
                 'message': 'Ocurrió un error inesperado en el servidor.'
             }, status=500)
 
-    # Método GET: Pasar datos iniciales al contexto para la plantilla
+    # Pasar datos iniciales al contexto para la plantilla
     context = {
         'form': form,
-        'diagnostico_form': diagnostico_form, # Aún se pasa el form vacío
-        'initial_diagnostico_id': initial_diagnostico_id,     # ID del diagnóstico de la URL
-        'initial_diagnostico_texto': initial_diagnostico_texto # Texto del diagnóstico de la URL
+        'diagnostico_form': diagnostico_form,
+        'initial_diagnostico_id': initial_diagnostico_id,
+        'initial_diagnostico_texto': initial_diagnostico_texto
     }
     return render(request, 'gestor_reembolsos/crear_reembolso.html', context)
 
@@ -301,7 +291,7 @@ def detalle_reembolso(request, reembolso_id):
 
         reclamaciones = [{
             'id': rec.id_reclamacion,
-            'diagnostico': rec.id_diagnostico.diagnostico,
+            'diagnostico': rec.id_diagnostico.descripcion_diagnostico,
             'es_inicial': not rec.inicial_complementaria,
             'cantidad_partidas': rec.cantidad_partidas,
             'estado': 'Abierta' if rec.abierta else 'Cerrada',
