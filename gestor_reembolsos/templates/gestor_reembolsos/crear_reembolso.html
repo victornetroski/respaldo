@@ -49,6 +49,11 @@
                                 <label class="form-label">Seleccionar Diagnóstico Existente:</label>
                                 <select name="diagnostico_existente" class="form-select">
                                     <option value="">- Seleccione un diagnóstico -</option>
+                                    {% for diag in diagnostico_form.diagnostico_existente %}
+                                        <option value="{{ diag.id }}" {% if diag.id == diagnostico_form.diagnostico_existente.value %}selected{% endif %}>
+                                            {{ diag.descripcion_diagnostico }}
+                                        </option>
+                                    {% endfor %}
                                 </select>
                             </div>
                             <div class="mb-3">
@@ -66,7 +71,8 @@
                                        name="diagnostico" 
                                        class="form-control"
                                        autocomplete="off"
-                                       placeholder="Escriba para buscar o crear nuevo diagnóstico">
+                                       placeholder="Escriba para buscar o crear nuevo diagnóstico"
+                                       value="{{ diagnostico_form.diagnostico_nuevo.value }}">
                                 <div id="diagnosticoSuggestions" class="diagnostico-suggestions"></div>
                             </div>
 
@@ -232,46 +238,6 @@
     }
 
     // Manejar el cambio de diagnóstico existente
-    document.querySelector('select[name="diagnostico_existente"]').addEventListener('change', function() {
-        const selectedOption = this.options[this.selectedIndex];
-        if (selectedOption.value) {
-            // Establecer el diagnóstico seleccionado
-            const diagnosticoText = selectedOption.text.split(' (Inicio:')[0]; // Obtener solo el texto del diagnóstico
-            document.getElementById('diagnostico_input').value = diagnosticoText;
-            
-            // Establecer fechas solo si existen
-            if (selectedOption.dataset.fechaInicio) {
-                document.querySelector('input[name="fecha_inicio_padecimiento"]').value = 
-                    selectedOption.dataset.fechaInicio;
-            }
-            if (selectedOption.dataset.fechaAtencion) {
-                document.querySelector('input[name="fecha_primera_atencion"]').value = 
-                    selectedOption.dataset.fechaAtencion;
-            }
-
-            // Establecer el ID del diagnóstico
-            if (!document.getElementById('diagnostico_id_hidden')) {
-                const hiddenInput = document.createElement('input');
-                hiddenInput.type = 'hidden';
-                hiddenInput.name = 'diagnostico_id';
-                hiddenInput.id = 'diagnostico_id_hidden';
-                document.getElementById('reembolsoForm').appendChild(hiddenInput);
-            }
-            document.getElementById('diagnostico_id_hidden').value = selectedOption.value;
-            
-            // Establecer el tipo como existente
-            if (!document.getElementById('diagnostico_tipo_hidden')) {
-                const tipoInput = document.createElement('input');
-                tipoInput.type = 'hidden';
-                tipoInput.name = 'diagnostico_tipo';
-                tipoInput.id = 'diagnostico_tipo_hidden';
-                document.getElementById('reembolsoForm').appendChild(tipoInput);
-            }
-            document.getElementById('diagnostico_tipo_hidden').value = 'existente';
-        }
-    });
-
-    // Inicialización del formulario
     document.addEventListener('DOMContentLoaded', function() {
         const aseguradoSelect = document.querySelector('select[name="asegurado"]');
         
@@ -289,6 +255,25 @@
         }
 
         setupDragAndDrop();
+
+        document.querySelector('select[name="diagnostico_existente"]').addEventListener('change', function() {
+            const selectedOption = this.options[this.selectedIndex];
+            if (selectedOption.value) {
+                // Establecer el diagnóstico seleccionado
+                const diagnosticoText = selectedOption.text.split(' (Inicio:')[0]; // Obtener solo el texto del diagnóstico
+                document.getElementById('diagnostico_input').value = diagnosticoText;
+                
+                // Establecer fechas solo si existen
+                if (selectedOption.dataset.fechaInicio) {
+                    document.querySelector('input[name="fecha_inicio_padecimiento"]').value = 
+                        selectedOption.dataset.fechaInicio;
+                }
+                if (selectedOption.dataset.fechaAtencion) {
+                    document.querySelector('input[name="fecha_primera_atencion"]').value = 
+                        selectedOption.dataset.fechaAtencion;
+                }
+            }
+        });
     });
 
     // Mantener el código JavaScript existente y agregar:
@@ -725,6 +710,12 @@
                 confirmButtonText: 'Aceptar'
             });
         }
+    });
+
+    $(document).ready(function() {
+        $('.form-select').select2({
+            width: '100%' // Asegúrate de que el ancho esté definido
+        });
     });
 </script>
 {% endblock %}

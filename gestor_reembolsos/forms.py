@@ -101,13 +101,16 @@ class DiagnosticoReembolsoForm(forms.ModelForm):
         asegurado_id = kwargs.pop('asegurado_id', None)
         super().__init__(*args, **kwargs)
         
-        # Ocultar el campo descripcion_diagnostico ya que usaremos los campos personalizados
+        # Ocultar el campo descripcion_diagnostico
         self.fields['descripcion_diagnostico'].widget = forms.HiddenInput()
         
         if asegurado_id:
             try:
                 asegurado = Asegurado.objects.get(id_asegurado=asegurado_id)
                 self.fields['diagnostico_existente'].queryset = asegurado.diagnosticos_relacionados.all()
+                
+                # Imprimir los diagnósticos relacionados para verificar
+                print(f"Diagnósticos relacionados para el asegurado {asegurado_id}: {self.fields['diagnostico_existente'].queryset}")
             except Asegurado.DoesNotExist:
                 self.fields['diagnostico_existente'].queryset = Diagnosticos.objects.none()
 
